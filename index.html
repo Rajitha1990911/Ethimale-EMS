@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Ethimale Sugar – Energy Management System</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<h1>Ethimale Sugar – Energy Management System</h1>
+
+<div class="tabs">
+  <button onclick="showTab('entry')">Cumulative Entry</button>
+  <button onclick="showTab('daily')">Daily Consumption</button>
+  <button onclick="showTab('balance')">Energy Balance</button>
+  <button onclick="showTab('reports')">Reports</button>
+</div>
+
+<!-- TAB 1 -->
+<div id="entry" class="tab active">
+  <h2>Cumulative Meter Entry (Morning Reading)</h2>
+  <input type="date" id="date"><br><br>
+  <div id="entryFields" class="grid"></div>
+  <button onclick="saveCumulative()">Save Cumulative Readings</button>
+  <p id="status"></p>
+</div>
+
+<!-- TAB 2 -->
+<div id="daily" class="tab">
+  <h2>Daily Internal Consumption</h2>
+  <p id="dailyNote"></p>
+  <canvas id="consumptionPie"></canvas>
+</div>
+
+<!-- TAB 3 -->
+<div id="balance" class="tab">
+  <h2>Energy Balance</h2>
+  <canvas id="balanceChart"></canvas>
+</div>
+
+<!-- TAB 4 -->
+<div id="reports" class="tab">
+  <h2>Daily Report</h2>
+  <p>Daily PDF available only from Day 2 onwards</p>
+  <input type="date" id="reportDate">
+  <button onclick="generatePDF()">Generate Daily PDF</button>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
