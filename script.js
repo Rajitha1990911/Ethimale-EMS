@@ -116,11 +116,24 @@ function saveCumulative() {
   cumulativeHistory.push(record);
 
   // Append to Google Sheet
-  fetch(SCRIPT_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(record)
+  function postToSheet(data) {
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = SCRIPT_URL;
+  form.style.display = "none";
+
+  Object.keys(data).forEach(key => {
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = key;
+    input.value = data[key];
+    form.appendChild(input);
   });
+
+  document.body.appendChild(form);
+  form.submit();
+  document.body.removeChild(form);
+}
 
   document.getElementById("status").innerText =
     cumulativeHistory.length === 1
