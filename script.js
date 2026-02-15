@@ -159,6 +159,7 @@ if (!isDateValidForSave(date)) {
   form.submit();
   document.body.removeChild(form);
 }
+  postToSheet(record);
 
   document.getElementById("status").innerText =
     cumulativeHistory.length === 1
