@@ -1,7 +1,7 @@
 /*************************************************
  CONFIGURATION
 *************************************************/
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxIkeAwNj2c2lNP-r96ckf-Pn-DFFdPmtESDnKyUoqapck80xmGUN7o95J_U4Mh0GUC/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwEJ7Q0SeC1-vnIEbPnBi2vvDR9EWJv923MOsqvo0JqOyDWcqbNkbaVdBopILtp-4OX/exec";
 
 /*************************************************
  FIELD DEFINITIONS
@@ -289,6 +289,73 @@ function renderBalanceChart(data) {
     }
   });
 }
+async function loadLatestDailyData() {
+  try {
+    const res = await fetch(SCRIPT_URL);
+    const data = await res.json();
+
+    if (data.status === "not_enough_data") return;
+
+    const today = data.today;
+    const yesterday = data.yesterday;
+
+    // reuse your existing daily logic
+    let daily = {};
+    internalFields.forEach(f => {
+      daily[f] = today[f] - yesterday[f];
+    });
+
+    const boiler =
+      daily["Boiler Main"] +
+      daily["Feed Pump 1"] +
+      daily["Feed Pump 2"] +
+      daily["Feed Pump 3"] +
+      daily["Wood Chipper"];
+
+    const millNet = Math.max(daily["Mill"] - daily["ETP"], 0);
+    const processNet = Math.max(
+      daily["Process PCC"] - boiler - daily["Accommodation"],
+      0
+    );
+
+    const internalTotal =
+      millNet +
+      processNet +
+      boiler +
+      daily["ETP"] +
+      daily["Accommodation"] +
+      daily["Distillery"];
+
+    const tgDaily = today["TG"] - yesterday["TG"];
+    const dgDaily = today["DG"] - yesterday["DG"];
+    const exportDaily = today["Export"] - yesterday["Export"];
+    const importDaily = today["Import"] - yesterday["Import"];
+    const solarDaily = today["Solar"] - yesterday["Solar"];
+
+    renderConsumptionPie({
+      Mill: millNet,
+      Process: processNet,
+      Boiler: boiler,
+      ETP: daily["ETP"],
+      Accommodation: daily["Accommodation"],
+      Distillery: daily["Distillery"]
+    });
+
+    renderBalanceChart({
+      tg: tgDaily,
+      dg: dgDaily,
+      internal: internalTotal,
+      export: exportDaily,
+      import: importDaily,
+      solar: solarDaily,
+      tgError: tgDaily - (internalTotal + exportDaily),
+      dgError: dgDaily > 0 ? dgDaily - internalTotal : 0
+    });
+
+  } catch (err) {
+    console.error("Failed to load daily data", err);
+  }
+}
 
 /*************************************************
  PDF PLACEHOLDER
@@ -296,3 +363,4 @@ function renderBalanceChart(data) {
 function generatePDF() {
   alert("Daily PDF will be generated via Google Apps Script.");
 }
+window.onload = loadLatestDailyData;
