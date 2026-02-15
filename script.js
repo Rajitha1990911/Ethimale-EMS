@@ -141,30 +141,31 @@ if (!isDateValidForSave(date)) {
 
   // Append to Google Sheet
  
-  function postToSheet(data) {
-  const form = document.createElement("form");
-  form.method = "POST";
-  form.action = SCRIPT_URL;
-  form.style.display = "none";
+  async function postToSheet(data) {
+    const body = new URLSearchParams();
+    Object.keys(data).forEach(key => {
+      body.append(key, data[key]);
+    });
 
-  Object.keys(data).forEach(key => {
-    const input = document.createElement("input");
-    input.type = "hidden";
-    input.name = key;
-    input.value = data[key];
-    form.appendChild(input);
-  });
+    try {
+      const res = await fetch(SCRIPT_URL, {
+        method: "POST",
+        body
+      });
 
-  document.body.appendChild(form);
-  form.submit();
-  document.body.removeChild(form);
-}
+      if (!res.ok) throw new Error("Request failed");
+      await res.text();
+
+      document.getElementById("status").innerText =
+        cumulativeHistory.length === 1
+          ? "Baseline saved. Daily report will be available from tomorrow."
+          : "Cumulative readings saved.";
+    } catch (err) {
+      document.getElementById("status").innerText =
+        "Save failed. Please try again.";
+    }
+  }
   postToSheet(record);
-
-  document.getElementById("status").innerText =
-    cumulativeHistory.length === 1
-      ? "Baseline saved. Daily report will be available from tomorrow."
-      : "Cumulative readings saved.";
 
   clearInputs();
 
