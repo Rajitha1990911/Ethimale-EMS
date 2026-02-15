@@ -83,6 +83,26 @@ function clearInputs() {
     if (i.type !== "date") i.value = "";
   });
 }
+function isDateValidForSave(newDate) {
+
+  if (cumulativeHistory.length === 0) {
+    return true; // first entry always allowed
+  }
+
+  const lastDate = cumulativeHistory[cumulativeHistory.length - 1].Date;
+
+  if (newDate === lastDate) {
+    alert("Data for this date already exists. Please select the next date.");
+    return false;
+  }
+
+  if (new Date(newDate) < new Date(lastDate)) {
+    alert("Entered date is earlier than the last recorded date.");
+    return false;
+  }
+
+  return true;
+}
 
 /*************************************************
  SAVE CUMULATIVE DATA
@@ -92,10 +112,14 @@ function saveCumulative() {
   if (!validateAllFields()) return;
 
   const date = document.getElementById("date").value;
-  if (!date) {
-    alert("Please select the date.");
-    return;
-  }
+if (!date) {
+  alert("Please select the date.");
+  return;
+}
+
+if (!isDateValidForSave(date)) {
+  return;
+}
 
   let record = { Date: date };
 
