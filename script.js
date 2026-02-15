@@ -1,7 +1,7 @@
 /*************************************************
  CONFIGURATION
 *************************************************/
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbymowNxNuIoeI-bhxkF1r2hhbmqymB3frz3qJkqEoNJ-uWykxyWVVnWVzzaW-5yU327/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxIkeAwNj2c2lNP-r96ckf-Pn-DFFdPmtESDnKyUoqapck80xmGUN7o95J_U4Mh0GUC/exec";
 
 /*************************************************
  FIELD DEFINITIONS
@@ -116,6 +116,7 @@ function saveCumulative() {
   cumulativeHistory.push(record);
 
   // Append to Google Sheet
+ 
   function postToSheet(data) {
   const form = document.createElement("form");
   form.method = "POST";
