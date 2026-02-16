@@ -1,7 +1,7 @@
 /*************************************************
  CONFIGURATION
 *************************************************/
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzasd6az09FBzPyFgth8ppK1sCF97PWIJHAWiYYf_3MO3ACnSU-TQd4ODmmhfam1iGy/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwPybIC60rZRpeAYT4wWlMYtwpzNZVIjVBHT0Mx12o2w5T6EVtos8Hfjjzq6vvykA_b/exec";
 
 /*************************************************
  FIELD DEFINITIONS
@@ -9,7 +9,7 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzasd6az09FBzPyFgth8
 const internalFields = [
   "Mill",
   "Process PCC",
-  "Boiler Main",
+  "Boiler Main",a
   "Feed Pump 1",
   "Feed Pump 2",
   "Feed Pump 3",
@@ -27,7 +27,7 @@ const generationFields = [
   "Solar"
 ];
 
-let cumulativeHistory = [];
+
 
 /*************************************************
  UI HELPERS
@@ -143,9 +143,7 @@ if (!isDateValidForSave(date)) {
  
   async function postToSheet(data) {
     const body = new URLSearchParams();
-    Object.keys(data).forEach(key => {
-      body.append(key, data[key]);
-    });
+    Object.keys(data).forEach(key => body.append(key, data[key]));
 
     try {
       const res = await fetch(SCRIPT_URL, {
@@ -153,25 +151,28 @@ if (!isDateValidForSave(date)) {
         body
       });
 
-      if (!res.ok) throw new Error("Request failed");
-      await res.text();
+      if (!res.ok) throw new Error();
 
       document.getElementById("status").innerText =
-        cumulativeHistory.length === 1
-          ? "Baseline saved. Daily report will be available from tomorrow."
-          : "Cumulative readings saved.";
+        "Cumulative readings saved.";
+
+      clearInputs();
+
+      // 🔥 IMPORTANT: always recalc from Google Sheet
+      loadLatestDailyData();
+
     } catch (err) {
       document.getElementById("status").innerText =
         "Save failed. Please try again.";
     }
   }
+
   postToSheet(record);
+
 
   clearInputs();
 
-  if (cumulativeHistory.length > 1) {
-    calculateDaily();
-  }
+  
 }
 
 /*************************************************
@@ -179,8 +180,7 @@ if (!isDateValidForSave(date)) {
 *************************************************/
 function calculateDaily() {
 
-  const today = cumulativeHistory[cumulativeHistory.length - 1];
-  const yesterday = cumulativeHistory[cumulativeHistory.length - 2];
+  
 
   /* -------- INTERNAL DAILY -------- */
   let daily = {};
