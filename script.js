@@ -9,7 +9,7 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw9IEyKKXrWR-HAPnwDW
 const internalFields = [
   "Mill",
   "Process PCC",
-  "Boiler Main",a
+  "Boiler Main",
   "Feed Pump 1",
   "Feed Pump 2",
   "Feed Pump 3",
