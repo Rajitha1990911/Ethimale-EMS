@@ -1,7 +1,7 @@
 /*************************************************
  CONFIGURATION
 *************************************************/
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwkzFXYmnDisX70vqwIevQP_1duUP8QxJsNo_eYLZjkuHZ6nYrnZmH6t8MbLUS9gzk/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyx8QRLy8qpPxwd8aCvoum84f1J10JKezXjtzLR1bLRoaHpzTq8lPlEyoi07AxJvw/exec";
 
 /*************************************************
  FIELD DEFINITIONS
