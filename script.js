@@ -1,7 +1,7 @@
 /*************************************************
  CONFIGURATION
 *************************************************/
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw9IEyKKXrWR-HAPnwDWJJ2MkAxAcqpt4-A-N_tHQ3unW_pXN3b5qG6sVyYBJUAcVOY/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwkzFXYmnDisX70vqwIevQP_1duUP8QxJsNo_eYLZjkuHZ6nYrnZmH6t8MbLUS9gzk/exec";
 
 /*************************************************
  FIELD DEFINITIONS
@@ -27,23 +27,26 @@ const generationFields = [
   "Solar"
 ];
 
-let cumulativeHistory = [];
-
 /*************************************************
  UI HELPERS
 *************************************************/
 function showTab(id) {
   document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-  document.getElementById(id).classList.add("active");
+  const el = document.getElementById(id);
+  if (el) el.classList.add("active");
 }
 
 function buildInputs() {
   const container = document.getElementById("entryFields");
+  if (!container) return;
+
+  container.innerHTML = "";
+
   [...internalFields, ...generationFields].forEach(f => {
     const div = document.createElement("div");
     div.className = "input-group";
     div.innerHTML = `
-      <input id="${f}" placeholder="${f}">
+      <input type="number" step="any" id="${f}" placeholder="${f}">
       <select id="${f}_u">
         <option>MWh</option>
         <option>kWh</option>
@@ -51,22 +54,6 @@ function buildInputs() {
       </select>`;
     container.appendChild(div);
   });
-}
-buildInputs();
-
-/*************************************************
- VALIDATION
-*************************************************/
-function validateAllFields() {
-  for (let f of [...internalFields, ...generationFields]) {
-    const el = document.getElementById(f);
-    if (el.value === "") {
-      alert(`${f} field is empty. Please enter the cumulative reading.`);
-      el.focus();
-      return false;
-    }
-  }
-  return true;
 }
 
 /*************************************************
@@ -83,284 +70,119 @@ function clearInputs() {
     if (i.type !== "date") i.value = "";
   });
 }
-function isDateValidForSave(newDate) {
-
-  if (cumulativeHistory.length === 0) {
-    return true; // first entry always allowed
-  }
-
-  const lastDate = cumulativeHistory[cumulativeHistory.length - 1].Date;
-
-  if (newDate === lastDate) {
-    alert("Data for this date already exists. Please select the next date.");
-    return false;
-  }
-
-  if (new Date(newDate) < new Date(lastDate)) {
-    alert("Entered date is earlier than the last recorded date.");
-    return false;
-  }
-
-  return true;
-}
 
 /*************************************************
  SAVE CUMULATIVE DATA
 *************************************************/
 function saveCumulative() {
+  const dateEl = document.getElementById("date");
+  if (!dateEl || !dateEl.value) {
+    alert("Please select the date.");
+    return;
+  }
 
-  if (!validateAllFields()) return;
+  let record = { Date: dateEl.value };
 
-  const date = document.getElementById("date").value;
-if (!date) {
-  alert("Please select the date.");
-  return;
-}
-
-if (!isDateValidForSave(date)) {
-  return;
-}
-
-  let record = { Date: date };
-
-  internalFields.forEach(f => {
-    record[f] = toMWh(
-      Number(document.getElementById(f).value),
-      document.getElementById(f + "_u").value
-    );
+  [...internalFields, ...generationFields].forEach(f => {
+    const val = document.getElementById(f);
+    const unit = document.getElementById(f + "_u");
+    if (!val || !unit || val.value === "") {
+      alert(`${f} field is empty`);
+      return;
+    }
+    record[f] = toMWh(Number(val.value), unit.value);
   });
 
-  generationFields.forEach(f => {
-    record[f] = toMWh(
-      Number(document.getElementById(f).value),
-      document.getElementById(f + "_u").value
-    );
-  });
+  postToSheet(record);
+}
 
-  cumulativeHistory.push(record);
+async function postToSheet(data) {
+  const body = new URLSearchParams();
+  Object.keys(data).forEach(k => body.append(k, data[k]));
 
-  // Append to Google Sheet
- 
-  async function postToSheet(data) {
-    const body = new URLSearchParams();
-    Object.keys(data).forEach(key => {
-      body.append(key, data[key]);
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: "POST",
+      body
     });
 
-    try {
-      const res = await fetch(SCRIPT_URL, {
-        method: "POST",
-        body
-      });
+    if (!res.ok) throw new Error();
 
-      if (!res.ok) throw new Error("Request failed");
-      await res.text();
+    document.getElementById("status").innerText =
+      "Cumulative readings saved.";
 
-      document.getElementById("status").innerText =
-        cumulativeHistory.length === 1
-          ? "Baseline saved. Daily report will be available from tomorrow."
-          : "Cumulative readings saved.";
-    } catch (err) {
-      document.getElementById("status").innerText =
-        "Save failed. Please try again.";
-    }
-  }
-  postToSheet(record);
+    clearInputs();
+    loadLatestDailyData();
 
-  clearInputs();
-
-  if (cumulativeHistory.length > 1) {
-    calculateDaily();
+  } catch {
+    document.getElementById("status").innerText =
+      "Save failed.";
   }
 }
 
 /*************************************************
- DAILY CALCULATION
+ CHARTS (SAFE)
 *************************************************/
-function calculateDaily() {
+let consumptionChart = null;
+let balanceChart = null;
 
-  const today = cumulativeHistory[cumulativeHistory.length - 1];
-  const yesterday = cumulativeHistory[cumulativeHistory.length - 2];
-
-  /* -------- INTERNAL DAILY -------- */
-  let daily = {};
-  internalFields.forEach(f => {
-    daily[f] = today[f] - yesterday[f];
-  });
-
-  const boiler =
-    daily["Boiler Main"] +
-    daily["Feed Pump 1"] +
-    daily["Feed Pump 2"] +
-    daily["Feed Pump 3"] +
-    daily["Wood Chipper"];
-
-  const millNet = Math.max(daily["Mill"] - daily["ETP"], 0);
-
-  const processNet = Math.max(
-    daily["Process PCC"] - boiler - daily["Accommodation"],
-    0
-  );
-
-  const internalTotal =
-    millNet +
-    processNet +
-    boiler +
-    daily["ETP"] +
-    daily["Accommodation"] +
-    daily["Distillery"];
-
-  /* -------- GENERATION DAILY -------- */
-  const tgDaily = today["TG"] - yesterday["TG"];
-  const dgDaily = today["DG"] - yesterday["DG"];
-  const exportDaily = today["Export"] - yesterday["Export"];
-  const importDaily = today["Import"] - yesterday["Import"];
-  const solarDaily = today["Solar"] - yesterday["Solar"];
-
-  const tgBalanceError =
-    tgDaily - (internalTotal + exportDaily);
-
-  const dgBalanceError =
-    dgDaily > 0 ? dgDaily - internalTotal : 0;
-
-  /* -------- VISUALS -------- */
-  renderConsumptionPie({
-    Mill: millNet,
-    Process: processNet,
-    Boiler: boiler,
-    ETP: daily["ETP"],
-    Accommodation: daily["Accommodation"],
-    Distillery: daily["Distillery"]
-  });
-
-  renderBalanceChart({
-    tg: tgDaily,
-    dg: dgDaily,
-    internal: internalTotal,
-    export: exportDaily,
-    import: importDaily,
-    solar: solarDaily,
-    tgError: tgBalanceError,
-    dgError: dgBalanceError
-  });
-}
-
-/*************************************************
- CHARTS
-*************************************************/
 function renderConsumptionPie(data) {
-  showTab("daily");
-  new Chart(document.getElementById("consumptionPie"), {
-    type: "pie",
-    data: {
-      labels: Object.keys(data),
-      datasets: [{ data: Object.values(data) }]
+  if (consumptionChart) consumptionChart.destroy();
+  consumptionChart = new Chart(
+    document.getElementById("consumptionPie"),
+    {
+      type: "pie",
+      data: {
+        labels: Object.keys(data),
+        datasets: [{ data: Object.values(data) }]
+      }
     }
-  });
+  );
 }
 
 function renderBalanceChart(data) {
-  showTab("balance");
-  new Chart(document.getElementById("balanceChart"), {
-    type: "bar",
-    data: {
-      labels: [
-        "TG (Daily)",
-        "DG (Daily)",
-        "Internal",
-        "Export",
-        "Import",
-        "Solar",
-        "TG Balance Error",
-        "DG Balance Error"
-      ],
-      datasets: [{
-        data: [
-          data.tg,
-          data.dg,
-          data.internal,
-          data.export,
-          data.import,
-          data.solar,
-          data.tgError,
-          data.dgError
-        ]
-      }]
+  if (balanceChart) balanceChart.destroy();
+  balanceChart = new Chart(
+    document.getElementById("balanceChart"),
+    {
+      type: "bar",
+      data: {
+        labels: Object.keys(data),
+        datasets: [{ data: Object.values(data) }]
+      }
     }
-  });
+  );
 }
+
+/*************************************************
+ LOAD DAILY DATA
+*************************************************/
 async function loadLatestDailyData() {
   try {
     const res = await fetch(SCRIPT_URL);
     const data = await res.json();
 
     if (data.status === "not_enough_data") return;
+    if (!data.today || !data.yesterday) return;
 
     const today = data.today;
     const yesterday = data.yesterday;
 
-    // reuse your existing daily logic
     let daily = {};
     internalFields.forEach(f => {
-      daily[f] = today[f] - yesterday[f];
+      daily[f] = Math.max(today[f] - yesterday[f], 0);
     });
 
-    const boiler =
-      daily["Boiler Main"] +
-      daily["Feed Pump 1"] +
-      daily["Feed Pump 2"] +
-      daily["Feed Pump 3"] +
-      daily["Wood Chipper"];
+    renderConsumptionPie(daily);
+    renderBalanceChart(daily);
 
-    const millNet = Math.max(daily["Mill"] - daily["ETP"], 0);
-    const processNet = Math.max(
-      daily["Process PCC"] - boiler - daily["Accommodation"],
-      0
-    );
-
-    const internalTotal =
-      millNet +
-      processNet +
-      boiler +
-      daily["ETP"] +
-      daily["Accommodation"] +
-      daily["Distillery"];
-
-    const tgDaily = today["TG"] - yesterday["TG"];
-    const dgDaily = today["DG"] - yesterday["DG"];
-    const exportDaily = today["Export"] - yesterday["Export"];
-    const importDaily = today["Import"] - yesterday["Import"];
-    const solarDaily = today["Solar"] - yesterday["Solar"];
-
-    renderConsumptionPie({
-      Mill: millNet,
-      Process: processNet,
-      Boiler: boiler,
-      ETP: daily["ETP"],
-      Accommodation: daily["Accommodation"],
-      Distillery: daily["Distillery"]
-    });
-
-    renderBalanceChart({
-      tg: tgDaily,
-      dg: dgDaily,
-      internal: internalTotal,
-      export: exportDaily,
-      import: importDaily,
-      solar: solarDaily,
-      tgError: tgDaily - (internalTotal + exportDaily),
-      dgError: dgDaily > 0 ? dgDaily - internalTotal : 0
-    });
-
-  } catch (err) {
-    console.error("Failed to load daily data", err);
+  } catch (e) {
+    console.error("Load failed", e);
   }
 }
 
 /*************************************************
- PDF PLACEHOLDER
+ INIT
 *************************************************/
-function generatePDF() {
-  alert("Daily PDF will be generated via Google Apps Script.");
-}
+buildInputs();
 window.onload = loadLatestDailyData;
