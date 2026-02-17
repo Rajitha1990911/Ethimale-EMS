@@ -201,46 +201,68 @@ async function loadLatestDailyData() {
     if (!res.ok) throw new Error("Network error");
 
     const data = await res.json();
-
-    // Safety checks
     if (data.status === "not_enough_data") return;
     if (!data.today || !data.yesterday) return;
 
     const today = data.today;
     const yesterday = data.yesterday;
 
-    // 1️⃣ Calculate daily deltas from cumulative readings
-    const deltas = {};
+    /* 1️⃣ Daily deltas from cumulative readings */
+    const d = {};
     [...internalFields, ...generationFields].forEach(f => {
-      deltas[f] = Math.max((today[f] || 0) - (yesterday[f] || 0), 0);
+      d[f] = Math.max((today[f] || 0) - (yesterday[f] || 0), 0);
     });
 
-    // 2️⃣ Apply business logic (calculated consumers)
+    /* 2️⃣ Internal total (for export loss) */
+    const internalTotal = internalFields.reduce(
+      (sum, f) => sum + (d[f] || 0),
+      0
+    );
+
+    /* 3️⃣ Calculated consumers (YOUR CONFIRMED LOGIC) */
     const consumers = {
       "Process Net":
-        deltas["Process PCC"]
-        - deltas["Boiler Main"]
-        - deltas["Accommodation"]
-        - deltas["Wood Chipper"],
+        d["Process PCC"]
+        - d["Boiler Main"]
+        - d["Accommodation"]
+        - d["Wood Chipper"],
 
-      "ETP": deltas["ETP"],
+      "Mill Net":
+        d["Mill"]
+        - d["ETP"],
 
-      "Distillery": deltas["Distillery"],
+      "ETP": d["ETP"],
 
-      "Utilities":
-        deltas["Feed Pump 1"]
-        + deltas["Feed Pump 2"]
-        + deltas["Feed Pump 3"]
+      "Distillery": d["Distillery"],
+
+      "Boiler":
+        d["Boiler Main"]
+        + d["Feed Pump 1"]
+        + d["Feed Pump 2"]
+        + d["Feed Pump 3"]
     };
 
-    // 3️⃣ Clamp negative values to zero (meter overlap protection)
+    /* 4️⃣ Export loss (TG only, DG & Solar separate) */
+    const exportLoss =
+      (d["TG"] || 0)
+      - (d["Export"] || 0)
+      - internalTotal;
+
+    /* 5️⃣ Clamp negatives (physical safety) */
     Object.keys(consumers).forEach(k => {
       consumers[k] = Math.max(consumers[k], 0);
     });
 
-    // 4️⃣ Render charts using ONLY calculated values
-    renderConsumptionPie(consumers);
-    renderBalanceChart(consumers); // optional
+    const balance = {
+      ...consumers,
+      "Export Loss": Math.max(exportLoss, 0),
+      "DG (separate)": d["DG"] || 0,
+      "Solar (separate)": d["Solar"] || 0
+    };
+
+    /* 6️⃣ Charts */
+    renderConsumptionPie(consumers);   // calculated consumers only
+    renderBalanceChart(balance);        // balance incl. export loss
 
   } catch (e) {
     console.error("Load failed", e);
