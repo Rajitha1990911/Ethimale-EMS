@@ -89,7 +89,10 @@ function calculateConsumers(d) {
       d["Process PCC"]
       - d["Boiler Main"]
       - d["Accommodation"]
-      - d["Wood Chipper"],
+      - d["Wood Chipper"]
+      - d["Feed Pump 1"]
+      - d["Feed Pump 2"]
+      - d["Feed Pump 3"],
 
     "ETP": d["ETP"],
 
