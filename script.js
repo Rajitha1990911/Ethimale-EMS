@@ -70,6 +70,44 @@ function clearInputs() {
     if (i.type !== "date") i.value = "";
   });
 }
+/*************************************************
+ DAILY CALCULATIONS
+*************************************************/
+function getDailyDeltas(today, yesterday) {
+  const deltas = {};
+
+  [...internalFields, ...generationFields].forEach(f => {
+    deltas[f] = Math.max(today[f] - yesterday[f], 0);
+  });
+
+  return deltas;
+}
+
+function calculateConsumers(d) {
+  const result = {
+    "Process Net":
+      d["Process PCC"]
+      - d["Boiler Main"]
+      - d["Accommodation"]
+      - d["Wood Chipper"],
+
+    "ETP": d["ETP"],
+
+    "Distillery": d["Distillery"],
+
+    "Utilities":
+      d["Feed Pump 1"]
+      + d["Feed Pump 2"]
+      + d["Feed Pump 3"]
+  };
+
+  // Safety clamp
+  Object.keys(result).forEach(k => {
+    result[k] = Math.max(result[k], 0);
+  });
+
+  return result;
+}
 
 /*************************************************
  SAVE CUMULATIVE DATA
@@ -160,26 +198,55 @@ function renderBalanceChart(data) {
 async function loadLatestDailyData() {
   try {
     const res = await fetch(SCRIPT_URL);
+    if (!res.ok) throw new Error("Network error");
+
     const data = await res.json();
 
+    // Safety checks
     if (data.status === "not_enough_data") return;
     if (!data.today || !data.yesterday) return;
 
     const today = data.today;
     const yesterday = data.yesterday;
 
-    let daily = {};
-    internalFields.forEach(f => {
-      daily[f] = Math.max(today[f] - yesterday[f], 0);
+    // 1️⃣ Calculate daily deltas from cumulative readings
+    const deltas = {};
+    [...internalFields, ...generationFields].forEach(f => {
+      deltas[f] = Math.max((today[f] || 0) - (yesterday[f] || 0), 0);
     });
 
-    renderConsumptionPie(daily);
-    renderBalanceChart(daily);
+    // 2️⃣ Apply business logic (calculated consumers)
+    const consumers = {
+      "Process Net":
+        deltas["Process PCC"]
+        - deltas["Boiler Main"]
+        - deltas["Accommodation"]
+        - deltas["Wood Chipper"],
+
+      "ETP": deltas["ETP"],
+
+      "Distillery": deltas["Distillery"],
+
+      "Utilities":
+        deltas["Feed Pump 1"]
+        + deltas["Feed Pump 2"]
+        + deltas["Feed Pump 3"]
+    };
+
+    // 3️⃣ Clamp negative values to zero (meter overlap protection)
+    Object.keys(consumers).forEach(k => {
+      consumers[k] = Math.max(consumers[k], 0);
+    });
+
+    // 4️⃣ Render charts using ONLY calculated values
+    renderConsumptionPie(consumers);
+    renderBalanceChart(consumers); // optional
 
   } catch (e) {
     console.error("Load failed", e);
   }
 }
+
 
 /*************************************************
  INIT
