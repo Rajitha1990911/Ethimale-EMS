@@ -102,6 +102,7 @@ function calculateConsumers(d) {
       d["Feed Pump 1"]
       + d["Feed Pump 2"]
       + d["Feed Pump 3"]
+      + d["Wood Chipper"]
   };
 
   // Safety clamp
@@ -246,6 +247,7 @@ async function loadLatestDailyData() {
         + d["Feed Pump 1"]
         + d["Feed Pump 2"]
         + d["Feed Pump 3"]
+        + d["Wood Chipper"]
     };
 
     /* 4️⃣ Export loss (TG only, DG & Solar separate) */
