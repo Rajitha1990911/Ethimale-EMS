@@ -264,8 +264,8 @@ async function loadLatestDailyData() {
     const balance = {
       ...consumers,
       "Export Loss": Math.max(exportLoss, 0),
-      "DG (separate)": d["DG"] || 0,
-      "Solar (separate)": d["Solar"] || 0
+      "DG": d["DG"] || 0,
+      "Solar": d["Solar"] || 0
     };
 
     /* 6️⃣ Charts */
